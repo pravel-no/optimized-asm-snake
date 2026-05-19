@@ -1,0 +1,9 @@
+# Compiled binaries
+*.com
+*.bin
+*.exe
+*.obj
+
+# OS generated files
+.DS_Store
+Thumbs.db
