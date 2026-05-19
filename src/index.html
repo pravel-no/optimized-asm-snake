@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra-Optimized x86 Assembly Snake</title>
+    <!-- Подключаем стили и JS-библиотеку js-dos v6 (стабильная классическая версия) -->
+    <link rel="stylesheet" href="https://js-dos.com/6.22/current/js-dos.css">
+    <script src="https://js-dos.com/6.22/current/js-dos.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 24px;
+            color: #4CAF50;
+        }
+        p {
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+        /* Размер окна DOSBox */
+        #dosbox-container {
+            width: 640px;
+            height: 400px;
+            border: 4px solid #4CAF50;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 Ultra-Optimized Assembly Snake</h1>
+    <p>Управление: WASD. Нажмите на экран игры, чтобы активировать клавиатуру.</p>
+
+    <!-- Контейнер для рендера игры -->
+    <div id="dosbox-container"></div>
+
+    <script>
+        // Инициализируем Dosbox внутри нашего контейнера
+        Dos(document.getElementById("dosbox-container"), {
+            wdosboxUrl: "https://js-dos.com/6.22/current/wdosbox.js"
+        }).ready((fs, main) => {
+            // Скачиваем архив с игрой и распаковываем во внутреннюю файловую систему
+            fs.extract("snake.zip").then(() => {
+                // Запускаем исполняемый файл игры
+                main(["-c", "snake.com"]);
+            });
+        });
+    </script>
+
+</body>
+</html>
