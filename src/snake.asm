@@ -2,13 +2,6 @@
 ; Ultra-Optimized 16-bit Assembly Snake Game (MS-DOS .COM)
 ; Author: pravel-no (https://github.com/pravel-no)
 ; License: MIT
-;
-; Key Optimizations:
-; - O(1) Circular Queue for snake body (no array shifting)
-; - Packed X/Y coordinates (AH=Y, AL=X) with unsigned overflow boundary checks (no DIV)
-; - Fast video offset math using bit shifts: Y * 160 -> (Y * 128) + (Y * 32) (no MUL)
-; - Fast LCG pseudo-random number generator
-; - Fixed-point scaling for apple spawning coordinates (no DIV)
 ; ==============================================================================
 
 org 100h
@@ -30,10 +23,11 @@ start:
     mov es, ax
     cld
 
-    ; Initialize initial snake segments in circular buffer (AH = Y, AL = X)
-    mov word [snake_buf + 0], 0C28h ; Head (Y:12, X:40)
+    ; [ИСПРАВЛЕНО] Правильный порядок инициализации кольцевого буфера:
+    ; Индекс 0 - Хвост, Индекс 2 - Тело, Индекс 4 - Голова.
+    mov word [snake_buf + 0], 0C26h ; Tail (Y:12, X:38)
     mov word [snake_buf + 2], 0C27h ; Body (Y:12, X:39)
-    mov word [snake_buf + 4], 0C26h ; Tail (Y:12, X:38)
+    mov word [snake_buf + 4], 0C28h ; Head (Y:12, X:40)
 
     ; Draw initial snake segments
     mov ax, [snake_buf + 0]
@@ -47,10 +41,10 @@ start:
 
 game_loop:
     ; Frame delay using BIOS wait function (INT 15h, AH=86h)
-    ; CX:DX = microseconds (~100ms)
+    ; CX:DX = microseconds (~110ms)
     mov ah, 86h
     mov cx, 1
-    mov dx, 86A0h
+    mov dx, 0AE10h ; Чуть увеличили задержку до 110мс, чтобы змейка не летела слишком быстро
     int 15h
 
     ; Non-blocking keyboard check
@@ -104,11 +98,11 @@ game_loop:
     mov si, [head_idx]
     mov ax, [snake_buf + si]
 
-    ; Calculate new head coordinates (using byte addition to prevent carry bleed)
+    ; Calculate new head coordinates
     add al, [dir_x]
     add ah, [dir_y]
 
-    ; [OPTIMIZATION] Fast boundary check via unsigned comparison (handles negative coords)
+    ; Fast boundary check via unsigned comparison
     cmp al, 80
     jae game_over
     cmp ah, 25
@@ -124,7 +118,7 @@ game_loop:
     je .eat_apple
 
     ; --- Normal Move ---
-    ; [OPTIMIZATION] Erase tail from screen using tail_idx without shifting arrays
+    ; Erase tail from screen using tail_idx
     mov bx, [tail_idx]
     mov dx, [snake_buf + bx]
     
@@ -134,7 +128,7 @@ game_loop:
     mov word [es:di], 0020h ; Write black space
     pop ax
 
-    ; Advance tail pointer (buffer size is 512 words, wrap at 1024 bytes)
+    ; Advance tail pointer (wrap at 1024 bytes)
     add bx, 2
     and bx, 1023
     mov [tail_idx], bx
@@ -182,8 +176,6 @@ exit_game:
 
 ; --- Helper Functions ---
 
-; [OPTIMIZATION] Fast conversion of coordinates (AH=Y, AL=X) into VRAM offset (DI)
-; Uses shift-add math: Y * 160 -> (Y * 128) + (Y * 32)
 get_screen_offset:
     push ax
     push bx
@@ -201,7 +193,7 @@ get_screen_offset:
     shl dx, 5
     add cx, dx              ; CX = Y * 160
 
-    shl bx, 1               ; BX = X * 2 (2 bytes per character cell)
+    shl bx, 1               ; BX = X * 2
     add cx, bx              ; CX = Total offset
 
     mov di, cx              ; Return in DI
@@ -212,13 +204,11 @@ get_screen_offset:
     pop ax
     ret
 
-; Draw snake character at coordinates in AX
 draw_char_at_coord:
     call get_screen_offset
     mov word [es:di], 0A6Fh ; Green 'o'
     ret
 
-; Spawn an apple randomly
 spawn_apple:
 .retry:
     ; LCG Pseudo-Random Number Generator
@@ -227,7 +217,7 @@ spawn_apple:
     add ax, 13849
     mov [rand_seed], ax
 
-    ; [OPTIMIZATION] Fixed-point multiplication mapping to 0..1999 (No DIV)
+    ; Fixed-point multiplication mapping to 0..1999 (No DIV)
     mov bx, 2000
     mul bx                  ; DX = (AX * 2000) >> 16
     
@@ -246,12 +236,12 @@ section .data
     dir_x db 1              ; Move right initially
     dir_y db 0
 
-    head_idx dw 0           ; Head pointer
-    tail_idx dw 4           ; Tail pointer
+    ; [ИСПРАВЛЕНО] Указатели теперь синхронизированы с направлением движения в буфере
+    head_idx dw 4           ; Head pointer starts at index 4 (0C28h)
+    tail_idx dw 0           ; Tail pointer starts at index 0 (0C26h)
 
     rand_seed dw 0ECECh     ; PRNG Seed
     msg_game_over db "GAME OVER!"
 
 section .bss
-    ; Circular buffer for snake body coordinates (512 words / 1024 bytes)
     snake_buf resw 512
